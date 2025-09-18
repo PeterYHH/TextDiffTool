@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TextDiffTool</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem 0;
+        }
+
+        .container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 1200px;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            text-align: center;
+            color: #1c1e21;
+            margin-bottom: 2rem;
+            font-size: 2rem;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .input-column {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .textarea-container {
+            position: relative;
+            display: flex;
+            border: 1px solid #ccd0d5;
+            border-radius: 6px;
+            overflow: hidden;
+            transition: border-color 0.2s, background-color 0.2s;
+        }
+
+        .textarea-container.dragover {
+            border-color: #1877f2;
+            background-color: #e7f3ff;
+        }
+
+        .line-numbers {
+            width: 40px;
+            padding: 0.75rem 0;
+            font-family: monospace;
+            font-size: 0.9rem;
+            text-align: right;
+            background-color: #f5f6f7;
+            color: #606770;
+            user-select: none;
+            padding-right: 5px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 250px;
+            border: none;
+            padding: 0.75rem;
+            font-family: monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+            box-sizing: border-box;
+            line-height: 1.5;
+            background: transparent;
+        }
+
+        textarea:focus {
+            outline: none;
+        }
+
+        .file-upload-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 0.5rem;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-label {
+            background-color: #e7f3ff;
+            color: #1877f2;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+
+        .file-label:hover {
+            background-color: #dceafc;
+        }
+
+        .file-name {
+            font-size: 0.85rem;
+            color: #606770;
+            margin-left: 1rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .controls {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        button {
+            background-color: #1877f2;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.75rem 2rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #166fe5;
+        }
+
+        .results {
+            border: 1px solid #ccd0d5;
+            border-radius: 6px;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.9rem;
+            background-color: #f5f6f7;
+            min-height: 100px;
+            overflow-x: auto;
+        }
+
+        .diff-line {
+            display: flex;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+
+        .line-num {
+            flex-shrink: 0;
+            width: 70px;
+            padding-right: 10px;
+            text-align: right;
+            color: #606770;
+            user-select: none;
+        }
+
+        .diff-add {
+            background-color: #c8e6c9;
+        }
+
+        .diff-del {
+            background-color: #ffcdd2;
+        }
+
+        @media (max-width: 768px) {
+            .input-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                width: 95%;
+                padding: 1.5rem;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>TextDiffTool</h1>
+
+        <div class="input-grid">
+            <div class="input-column">
+                <div class="textarea-container" id="drop-zone1">
+                    <div class="line-numbers" id="line-numbers1">1</div>
+                    <textarea id="text1" placeholder="Paste text here or drag & drop a file" oninput="updateLineNumbers('text1', 'line-numbers1')" onscroll="syncScroll('text1', 'line-numbers1')"></textarea>
+                </div>
+                <div class="file-upload-container">
+                    <label for="file1" class="file-label">Upload File 1</label>
+                    <input type="file" id="file1" onchange="handleFileUpload('file1', 'text1', 'fileName1')">
+                    <span class="file-name" id="fileName1">No file chosen</span>
+                </div>
+            </div>
+            <div class="input-column">
+                <div class="textarea-container" id="drop-zone2">
+                    <div class="line-numbers" id="line-numbers2">1</div>
+                    <textarea id="text2" placeholder="Paste text here or drag & drop a file" oninput="updateLineNumbers('text2', 'line-numbers2')" onscroll="syncScroll('text2', 'line-numbers2')"></textarea>
+                </div>
+                <div class="file-upload-container">
+                    <label for="file2" class="file-label">Upload File 2</label>
+                    <input type="file" id="file2" onchange="handleFileUpload('file2', 'text2', 'fileName2')">
+                    <span class="file-name" id="fileName2">No file chosen</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button onclick="compareText()">Compare</button>
+        </div>
+
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            updateLineNumbers('text1', 'line-numbers1');
+            updateLineNumbers('text2', 'line-numbers2');
+
+            const dropZone1 = document.getElementById('drop-zone1');
+            const dropZone2 = document.getElementById('drop-zone2');
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone1.addEventListener(eventName, preventDefaults, false);
+                dropZone2.addEventListener(eventName, preventDefaults, false);
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone1.addEventListener(eventName, () => dropZone1.classList.add('dragover'), false);
+                dropZone2.addEventListener(eventName, () => dropZone2.classList.add('dragover'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone1.addEventListener(eventName, () => dropZone1.classList.remove('dragover'), false);
+                dropZone2.addEventListener(eventName, () => dropZone2.classList.remove('dragover'), false);
+            });
+
+            dropZone1.addEventListener('drop', (e) => handleDrop(e, 'text1', 'fileName1', 'line-numbers1'), false);
+            dropZone2.addEventListener('drop', (e) => handleDrop(e, 'text2', 'fileName2', 'line-numbers2'), false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function handleDrop(e, textAreaId, fileNameId, lineNumbersId) {
+            const dt = e.dataTransfer;
+            const file = dt.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+                const textArea = document.getElementById(textAreaId);
+                const fileNameDisplay = document.getElementById(fileNameId);
+
+                reader.onload = function(event) {
+                    textArea.value = event.target.result;
+                    updateLineNumbers(textAreaId, lineNumbersId);
+                };
+                reader.readAsText(file);
+                fileNameDisplay.textContent = file.name;
+            }
+        }
+
+        function updateLineNumbers(textAreaId, lineNumbersId) {
+            const textArea = document.getElementById(textAreaId);
+            const lineNumbers = document.getElementById(lineNumbersId);
+            const lineCount = textArea.value.split('\n').length;
+            const lines = Array.from({ length: lineCount }, (_, i) => i + 1).join('\n');
+            lineNumbers.innerText = lines;
+            syncScroll(textAreaId, lineNumbersId);
+        }
+
+        function syncScroll(textAreaId, lineNumbersId) {
+            const textArea = document.getElementById(textAreaId);
+            const lineNumbers = document.getElementById(lineNumbersId);
+            lineNumbers.scrollTop = textArea.scrollTop;
+        }
+
+        function handleFileUpload(fileInputId, textAreaId, fileNameId) {
+            const fileInput = document.getElementById(fileInputId);
+            const file = fileInput.files[0];
+            const textArea = document.getElementById(textAreaId);
+            const fileNameDisplay = document.getElementById(fileNameId);
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    textArea.value = e.target.result;
+                    if(textAreaId === 'text1') updateLineNumbers('text1', 'line-numbers1');
+                    if(textAreaId === 'text2') updateLineNumbers('text2', 'line-numbers2');
+                };
+                reader.readAsText(file);
+                fileNameDisplay.textContent = file.name;
+            } else {
+                fileNameDisplay.textContent = 'No file chosen';
+            }
+        }
+
+        function compareText() {
+            const text1 = document.getElementById('text1').value;
+            const text2 = document.getElementById('text2').value;
+            const resultsDiv = document.getElementById('results');
+
+            const diff = diffLines(text1, text2);
+            resultsDiv.innerHTML = '';
+
+            if (diff.every(part => !part.added && !part.removed)) {
+                 resultsDiv.innerHTML = '<span>The texts are identical.</span>';
+                 return;
+            }
+
+            let lineNum1 = 1;
+            let lineNum2 = 1;
+
+            diff.forEach(part => {
+                const lineDiv = document.createElement('div');
+                lineDiv.className = 'diff-line';
+
+                const lineNumSpan = document.createElement('span');
+                lineNumSpan.className = 'line-num';
+
+                const textSpan = document.createElement('span');
+                textSpan.appendChild(document.createTextNode(part.value));
+
+                if (part.added) {
+                    lineDiv.className += ' diff-add';
+                    lineNumSpan.textContent = `+ ${lineNum2}`;
+                    lineNum2++;
+                } else if (part.removed) {
+                    lineDiv.className += ' diff-del';
+                    lineNumSpan.textContent = `- ${lineNum1}`;
+                    lineNum1++;
+                } else {
+                    lineNumSpan.textContent = `${lineNum1} ${lineNum2}`;
+                    lineNum1++;
+                    lineNum2++;
+                }
+                
+                lineDiv.appendChild(lineNumSpan);
+                lineDiv.appendChild(textSpan);
+                resultsDiv.appendChild(lineDiv);
+            });
+        }
+
+        // Basic line-by-line diff algorithm
+        function diffLines(oldStr, newStr) {
+            const oldLines = oldStr.split('\n');
+            const newLines = newStr.split('\n');
+            const result = [];
+
+            let oldIndex = 0;
+            let newIndex = 0;
+
+            while (oldIndex < oldLines.length || newIndex < newLines.length) {
+                const oldLine = oldLines[oldIndex];
+                const newLine = newLines[newIndex];
+
+                if (oldIndex < oldLines.length && newIndex < newLines.length && oldLine === newLine) {
+                    result.push({ value: oldLine });
+                    oldIndex++;
+                    newIndex++;
+                } else {
+                    const findInNew = newLines.indexOf(oldLine, newIndex);
+                    const findInOld = oldLines.indexOf(newLine, oldIndex);
+
+                    if (findInNew !== -1 && (findInNew - newIndex < findInOld - oldIndex || findInOld === -1)) {
+                        for (let i = newIndex; i < findInNew; i++) {
+                            result.push({ value: newLines[i], added: true });
+                        }
+                        result.push({ value: oldLine });
+                        oldIndex++;
+                        newIndex = findInNew + 1;
+                    } else if (findInOld !== -1 && (findInOld - oldIndex <= findInNew - newIndex || findInNew === -1)){
+                         for (let i = oldIndex; i < findInOld; i++) {
+                            result.push({ value: oldLines[i], removed: true });
+                        }
+                        result.push({ value: newLine });
+                        newIndex++;
+                        oldIndex = findInOld + 1;
+                    } else {
+                        if (oldIndex < oldLines.length) {
+                            result.push({ value: oldLine, removed: true });
+                            oldIndex++;
+                        }
+                        if (newIndex < newLines.length) {
+                            result.push({ value: newLine, added: true });
+                            newIndex++;
+                        }
+                    }
+                }
+            }
+
+            return result;
+        }
+    </script>
+
+</body>
+</html>
