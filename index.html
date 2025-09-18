@@ -140,6 +140,14 @@
             background-color: #166fe5;
         }
 
+        .export-btn {
+            background-color: #42b72a;
+        }
+
+        .export-btn:hover {
+            background-color: #36a420;
+        }
+
         .results {
             border: 1px solid #ccd0d5;
             border-radius: 6px;
@@ -231,12 +239,16 @@
 
         <div class="controls">
             <button onclick="compareText()">Compare</button>
+            <button class="export-btn" onclick="exportAsHtml()">Export as HTML</button>
+            <button class="export-btn" onclick="exportAsDiff()">Export as .diff</button>
         </div>
 
         <div class="results" id="results"></div>
     </div>
 
     <script>
+        let lastDiff = [];
+
         document.addEventListener('DOMContentLoaded', (event) => {
             updateLineNumbers('text1', 'line-numbers1');
             updateLineNumbers('text2', 'line-numbers2');
@@ -327,17 +339,18 @@
             const resultsDiv = document.getElementById('results');
             
             resultsDiv.innerHTML = '';
-            const diff = diffLines(text1, text2);
+            lastDiff = diffLines(text1, text2);
 
-            if (!diff.some(line => line.added || line.removed || (line.parts && line.parts.some(part => part.added || part.removed)))) {
+            if (!lastDiff.some(line => line.added || line.removed || (line.parts && line.parts.some(part => part.added || part.removed)))) {
                  resultsDiv.innerHTML = '<span>The texts are identical.</span>';
+                 lastDiff = []; // Clear last diff if identical
                  return;
             }
 
             let lineNum1 = 1;
             let lineNum2 = 1;
 
-            diff.forEach(line => {
+            lastDiff.forEach(line => {
                 const lineDiv = document.createElement('div');
                 lineDiv.className = 'diff-line';
 
@@ -455,6 +468,69 @@
             return matrix;
         }
 
+        function exportAsHtml() {
+            const resultsDiv = document.getElementById('results');
+            if (!resultsDiv.innerHTML || resultsDiv.innerText === 'The texts are identical.') {
+                alert('Nothing to export.');
+                return;
+            }
+
+            const styles = Array.from(document.styleSheets)
+                .map(s => Array.from(s.cssRules).map(r => r.cssText).join('\n'))
+                .join('\n');
+
+            const htmlContent = `
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Diff Result</title>
+                    <style>${styles}</style>
+                </head>
+                <body>
+                    <div class="results" id="results">${resultsDiv.innerHTML}</div>
+                </body>
+                </html>
+            `;
+
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'diff-result.html';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        function exportAsDiff() {
+            if (lastDiff.length === 0) {
+                alert('Nothing to export. Please compare first.');
+                return;
+            }
+
+            let diffOutput = '--- Original\n+++ Modified\n';
+
+            lastDiff.forEach(line => {
+                if (line.added) {
+                    diffOutput += `+${line.value}\n`;
+                } else if (line.removed) {
+                    diffOutput += `-${line.value}\n`;
+                } else if (line.parts) {
+                    const oldLine = line.parts.filter(p => !p.added).map(p => p.value).join('');
+                    const newLine = line.parts.filter(p => !p.removed).map(p => p.value).join('');
+                    diffOutput += `-${oldLine}\n`;
+                    diffOutput += `+${newLine}\n`;
+                } else {
+                    diffOutput += ` ${line.value}\n`;
+                }
+            });
+
+            const blob = new Blob([diffOutput], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'diff-result.diff';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
     </script>
 
 </body>
