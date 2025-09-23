@@ -241,6 +241,7 @@
 
         <div class="controls">
             <button onclick="compareText()">Compare</button>
+            <button onclick="swapText()">Swap</button>
             <button class="export-btn" onclick="exportAsHtml()">Export as HTML</button>
             <button class="export-btn" onclick="exportAsDiff()">Export as .diff</button>
         </div>
@@ -333,6 +334,17 @@
             } else {
                 fileNameDisplay.textContent = 'No file chosen';
             }
+        }
+
+        function swapText() {
+            const text1 = document.getElementById('text1');
+            const text2 = document.getElementById('text2');
+            const temp = text1.value;
+            text1.value = text2.value;
+            text2.value = temp;
+            updateLineNumbers('text1', 'line-numbers1');
+            updateLineNumbers('text2', 'line-numbers2');
+            compareText();
         }
 
         function compareText() {
